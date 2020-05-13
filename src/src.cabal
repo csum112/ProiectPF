@@ -21,6 +21,6 @@ executable src
   -- other-modules:    Server.hs
   -- other-extensions:
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  build-depends:       base >=4.13 && <4.14, network
+  build-depends:       base >=4.13 && <4.14, network, random, array
   -- hs-source-dirs:
   default-language:    Haskell2010

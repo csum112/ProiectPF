@@ -2,6 +2,7 @@ module Server (serverLoop) where
 
 import System.IO
 import Network.Socket
+import Cards
 
 serverLoop :: String -> String -> IO ()
 serverLoop hostname port = do
@@ -23,8 +24,14 @@ runConn :: (Socket, SockAddr) -> IO()
 runConn (sock, _) = do
     hdl <- socketToHandle sock ReadWriteMode
     hSetBuffering hdl NoBuffering
-    hPutStrLn hdl "Hello!"
+    hPutStrLn hdl "Hello! Try to say something"
+    req <- hGetLine hdl
+    hPutStrLn hdl ("You said: "++req)
+    hPutStrLn hdl (renderCardList [(Card Spades Jack),(Card Hearts Queen),(Card Hearts Queen),(Card Hearts Queen),(Card Hearts Queen)])
     hClose hdl
 
 getAnyAddr :: String -> String -> IO[AddrInfo]
 getAnyAddr hostname port = getAddrInfo (Just defaultHints) (Just hostname) (Just port)
+
+
+
