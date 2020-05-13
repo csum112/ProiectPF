@@ -95,17 +95,19 @@ join2cards c1 c2 = joinStringRows (interpolateStrings l1 l2) where
     l2 = splitOnNewLine (show c2)
 
 reduceStrings :: [[String]] -> [String]
-reduceStrings [] = ["", "", "", "", ""]
-reduceStrings (hd:tl) = interpolateStrings hd (reduceStrings tl)
+reduceStrings (hd:tl) = if (length tl) > 0 
+    then interpolateStrings hd (reduceStrings tl)
+    else hd
 
-cardsToStrings :: [Card] -> [[String]]
-cardsToStrings [] = []
-cardsToStrings (hd:tl) = (strs : (cardsToStrings tl)) where
-    strs = splitOnNewLine (show hd)
+cardsToStrings :: [Card] -> Int -> [[String]]
+cardsToStrings [] _ = []
+cardsToStrings (hd:tl) index = (strs : (cardsToStrings tl (index + 1))) where
+    strs = splitOnNewLine (show hd) ++ ["  (" ++ (show index) ++ ")  "]
 
 renderCardList :: [Card] -> String
 renderCardList cards = joinStringRows (reduceStrings cardStrings) where
-    cardStrings = cardsToStrings cards
+    cardStrings = cardsToStrings cards 0
+
 
 
 

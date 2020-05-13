@@ -6,7 +6,7 @@ import Cards
 
 serverLoop :: String -> String -> IO ()
 serverLoop hostname port = do
-    (addr:_) <- getAnyAddr "127.0.0.1" "8787"
+    (addr:_) <- getAnyAddr hostname port
     sock <- socket AF_INET Stream 0    -- create socket
     setSocketOption sock ReuseAddr 1   -- make socket immediately reusable - eases debugging.
     bind sock (addrAddress addr)  -- listen on TCP port 4242.
