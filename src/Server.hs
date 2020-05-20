@@ -3,35 +3,43 @@ module Server (serverLoop) where
 import System.IO
 import Network.Socket
 import Cards
+import Control.Concurrent
+import Player
 
-serverLoop :: String -> String -> IO ()
-serverLoop hostname port = do
+serverLoop :: String -> String -> Int -> IO ()
+serverLoop hostname port numberOfPlayers = do
     (addr:_) <- getAnyAddr hostname port
     sock <- socket AF_INET Stream 0    -- create socket
     setSocketOption sock ReuseAddr 1   -- make socket immediately reusable - eases debugging.
     bind sock (addrAddress addr)  -- listen on TCP port 4242.
     listen sock 2                              -- set a max of 2 queued connections
-    mainLoop sock                              -- unimplemented
+    gatherPlayers sock numberOfPlayers
+    gameLoop
 
 
-mainLoop :: Socket -> IO ()
-mainLoop sock = do
+gatherPlayers :: Socket -> Int -> IO ()
+gatherPlayers _ 0 = putStrLn "All players joined"
+gatherPlayers sock numberOfPlayers = do
     conn <- accept sock     -- accept a connection and handle it
-    runConn conn            -- run our server's logic
-    mainLoop sock           -- repeat
+    m <- runConn conn            -- run our server's logic
+    gatherPlayers sock (numberOfPlayers - 1)
 
-runConn :: (Socket, SockAddr) -> IO()
+runConn :: (Socket, SockAddr) -> IO (MVar PlayerAction)
 runConn (sock, _) = do
     hdl <- socketToHandle sock ReadWriteMode
     hSetBuffering hdl NoBuffering
-    hPutStrLn hdl "Hello! Try to say something"
-    req <- hGetLine hdl
-    hPutStrLn hdl ("You said: "++req)
-    hPutStrLn hdl (renderCardList [(Card Spades Jack),(Card Hearts Queen),(Card Hearts Queen),(Card Hearts Queen),(Card Hearts Queen)])
-    hClose hdl
+    m <- newEmptyMVar
+    tid <- forkIO (cback hdl m)   -- Moving client to a separate thread
+    putStrLn ("Moved client to " ++ show tid)
+    return m
 
 getAnyAddr :: String -> String -> IO[AddrInfo]
 getAnyAddr hostname port = getAddrInfo (Just defaultHints) (Just hostname) (Just port)
 
+    
 
+
+gameLoop :: IO ()
+gameLoop = do
+    putStrLn "Not implemented yet"
 
