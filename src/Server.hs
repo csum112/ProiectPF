@@ -48,7 +48,7 @@ beginGame players = do
     putStrLn "Game has started. Now dealing cards"
     shufDeck <- shuffle deck
     game <- dealCardsGameWrapper players shufDeck numberOfCards
-    gameLoop game
+    gameLoop game 0
     where 
         deck = deckBuilder
         numberOfCards = 5
@@ -83,12 +83,15 @@ drawCard (PW mvar hand) (hd:tl) = ((PW mvar newhand), tl) where
     newhand = hd:hand
 
 
-gameLoop :: Game -> IO()
-gameLoop (GM players deck last_card) = do 
+gameLoop :: Game -> Int -> IO()
+gameLoop (GM players deck last_card) turn = do 
     putStrLn "Sending players the new game state"
     updatePlayers players last_card
     foo <- getLine
-    gameLoop (GM players deck last_card)
+    gameLoop (GM players deck last_card) nextTurn where
+        playerThisTurn = players !! turn
+        nextTurn = (turn + 1) `mod` numberOfPlayers where
+            numberOfPlayers = length players
 
 
 updatePlayers :: [PlayerWrapper] -> Card -> IO()

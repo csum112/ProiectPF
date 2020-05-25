@@ -10,7 +10,8 @@ data PlayerAction =
     Claim | 
     BlindPick |
     Pick Card |
-    AnnounceTurn | 
+    ItsYourTurn | 
+    ItsNotYourTurn |
     GameState [Card] Card
 
 data Game = GM [PlayerWrapper] [Card] Card
@@ -26,6 +27,9 @@ cback hdl m = do
 
 startPlaying :: Handle -> MVar PlayerAction -> [Card] -> Card ->  IO()
 startPlaying hdl m hand last_card = do
+    hPutStrLn hdl "The last played card is: "
+    hPutStrLn hdl (show last_card)
+    hPutStrLn hdl "and your hand is:"
     hPutStrLn hdl (renderCardList hand)
     new_hand <- playRound hdl m hand
     startPlaying hdl m new_hand last_card
