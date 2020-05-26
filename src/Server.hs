@@ -51,7 +51,7 @@ beginGame players = do
     gameLoop game 0
     where 
         deck = deckBuilder
-        numberOfCards = 5
+        numberOfCards = 1
 
 dealCardsGameWrapper :: [PlayerWrapper] -> [Card] -> Int -> IO(Game)
 dealCardsGameWrapper players deck n = do 
@@ -59,12 +59,7 @@ dealCardsGameWrapper players deck n = do
     (newplayers, newdeck) = dealCards players deck n
     last_card = (Card Spades Ace) -- Fix this
 
--- dealCards :: [PlayerWrapper] -> [Card] -> Int -> ([PlayerWrapper], [Card])
--- dealCards players _ deck 0 = (players, deck)
--- dealCards [] players deck n = (players, deck)
--- dealCards (hd:tl) playersbak deck n = ((player:tl), newNewDeck) where
---     ((_, newNewDeck), player) = ((dealCards tl playersbak newdeck n), newplayer) where
---             (newplayer, newdeck) = drawCard hd deck
+
 
 dealCards :: [PlayerWrapper] -> [Card] -> Int -> ([PlayerWrapper], [Card])
 dealCards players deck 0 = (players, deck)
@@ -87,7 +82,7 @@ gameLoop :: Game -> Int -> IO()
 gameLoop (GM players deck last_card) turn = do 
     putStrLn "Sending players the new game state"
     updatePlayers players last_card
-    foo <- getLine
+    (GM players deck last_card) <- playerPlayTurn (GM players deck last_card) playerThisTurn
     gameLoop (GM players deck last_card) nextTurn where
         playerThisTurn = players !! turn
         nextTurn = (turn + 1) `mod` numberOfPlayers where
@@ -102,3 +97,10 @@ updatePlayers (hd:tl) last_card = do
 
 updatePlayer :: PlayerWrapper -> Card -> IO()
 updatePlayer (PW m hand) last_card = putMVar m (GameState hand last_card)
+
+playerPlayTurn :: Game -> PlayerWrapper -> IO(Game)
+playerPlayTurn game (PW m hand) = do
+    putMVar m ItsYourTurn
+    action <- takeMVar m
+    putStrLn (show action)
+    return game
