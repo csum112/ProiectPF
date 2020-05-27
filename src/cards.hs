@@ -95,6 +95,7 @@ join2cards c1 c2 = joinStringRows (interpolateStrings l1 l2) where
     l2 = splitOnNewLine (show c2)
 
 reduceStrings :: [[String]] -> [String]
+reduceStrings [] = []
 reduceStrings (hd:tl) = if (length tl) > 0 
     then interpolateStrings hd (reduceStrings tl)
     else hd
