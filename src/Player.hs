@@ -4,7 +4,7 @@ import System.IO
 import Cards
 import Data.Char
 
-data PlayerWrapper = PW (MVar PlayerAction) (MVar PlayerAction) [Card]
+data PlayerWrapper = PW (MVar PlayerAction) (MVar PlayerAction) [Card] | PWS (MVar PlayerAction) (MVar PlayerAction) Int
 
 data PlayerAction = 
     DiscardTop [Card] | 
@@ -14,7 +14,7 @@ data PlayerAction =
     HelpReq |
     GameState [Card] Card deriving Show
 
-data Game = GM [PlayerWrapper] [Card] Card
+data Game = GM [PlayerWrapper] [Card] Card | Over [PlayerWrapper]
 
 
 cback :: Handle -> (MVar PlayerAction) -> (MVar PlayerAction)-> IO ()
@@ -26,7 +26,7 @@ cback hdl mOut mIn = do
 
 startPlaying :: Handle -> MVar PlayerAction ->  MVar PlayerAction -> [Card] -> Card ->  IO()
 startPlaying hdl mOut mIn hand last_card = do
-    hPutStrLn hdl "============================================"
+    hPutStrLn hdl "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
     hPutStrLn hdl "The last played card is: "
     hPutStrLn hdl (show last_card)
     hPutStrLn hdl "and your hand is:"

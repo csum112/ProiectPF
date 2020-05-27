@@ -60,7 +60,8 @@ instance Show CardValue where
     show V10 = "10"
 
 instance Show Card where
-    show (Card kind value) = " _____ \n|     |\n| " ++ (show kind) ++ " " ++ (show value) ++ " |\n|     |\n|_____|\n"
+    show (Card kind value) = " _____ \n|     |\n| " ++ (show kind) ++ " " ++ (show value) ++ whitespace ++ "|\n|     |\n|_____|\n" where
+        whitespace = if (value == V10) then "" else " "
 
 
 splitLeft :: String -> String

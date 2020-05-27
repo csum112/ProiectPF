@@ -49,7 +49,8 @@ beginGame players = do
     putStrLn "Game has started. Now dealing cards"
     shufDeck <- shuffle deck
     game <- dealCardsGameWrapper players shufDeck numberOfCards
-    gameLoop game 0
+    round <- gameLoop game 0
+    return ()
     where 
         deck = deckBuilder
         numberOfCards = 5
@@ -80,12 +81,13 @@ drawCard (PW mOut mIn hand) (hd:tl) = ((PW mOut mIn newhand), tl) where
     newhand = hd:hand
 
 
-gameLoop :: Game -> Int -> IO()
+gameLoop :: Game -> Int -> IO(Game)
+gameLoop (Over players) _ = return (Over players) 
 gameLoop (GM players deck last_card) turn = do 
     putStrLn "Sending players the new game state"
     updatePlayers players last_card
-    (GM players deck last_card) <- playerPlayTurn (GM players deck last_card) playerThisTurn turn
-    gameLoop (GM players deck last_card) nextTurn where
+    game <- playerPlayTurn (GM players deck last_card) playerThisTurn turn
+    gameLoop game nextTurn where
         playerThisTurn = players !! turn
         nextTurn = (turn + 1) `mod` numberOfPlayers where
             numberOfPlayers = length players
@@ -101,13 +103,14 @@ updatePlayer :: PlayerWrapper -> Card -> IO()
 updatePlayer (PW mOut mIn hand) last_card = putMVar mOut (GameState hand last_card)
 
 playerPlayTurn :: Game -> PlayerWrapper -> Int -> IO(Game)
+playerPlayTurn (Over players) _ _ = return (Over players)
 playerPlayTurn game (PW mOut mIn hand) turn = do
     putMVar mOut ItsYourTurn
     action <- takeMVar mIn
     makeGameChanges game (PW mOut mIn hand) action turn
 
 makeGameChanges :: Game -> PlayerWrapper -> PlayerAction -> Int -> IO(Game)
--- makeGameChanges game players Claim turn = calculateFinalScore players turn --IMPLEMENT
+makeGameChanges (GM players _ _) player Claim turn = calculateFinalScore players player --IMPLEMENT
 makeGameChanges game player HelpReq  turn = playerPlayTurn game player turn
 makeGameChanges (GM players deck last_card) _ (DiscardTop toDiscard) turn = do
     return (GM (makePlayerChanges players turn toDiscard last_card) deck new_last_card) where 
@@ -125,3 +128,7 @@ changePlayer :: PlayerWrapper -> [Card] -> Card -> PlayerWrapper
 changePlayer (PW m1 m2 hand) toDiscard toAdd = (PW m1 m2 newHand) where
     newHand = (toAdd:withoutDiscarded) where
         withoutDiscarded = filter (\x -> not (x `elem` toDiscard)) hand
+
+
+calculateFinalScore :: [PlayerWrapper] -> PlayerWrapper -> IO(Game)
+calculateFinalScore players player = return (Over players)
