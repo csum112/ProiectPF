@@ -77,3 +77,6 @@ tokensToDiscardAction (hd:tl) hand = if length hd == 1 && isDigit (hd!!0) then
                 card = hand!!option
 tokensToDiscardAction _ _ = Nothing
 
+
+
+

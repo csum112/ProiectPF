@@ -8,5 +8,5 @@ main = do
     where
         hostname = "0.0.0.0"
         port = "333"
-        numberOfPlayers = 1
+        numberOfPlayers = 2
 

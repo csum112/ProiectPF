@@ -131,4 +131,18 @@ changePlayer (PW m1 m2 hand) toDiscard toAdd = (PW m1 m2 newHand) where
 
 
 calculateFinalScore :: [PlayerWrapper] -> PlayerWrapper -> IO(Game)
-calculateFinalScore players player = return (Over players)
+calculateFinalScore players player = return (Over newPlayers) where 
+    newPlayers = recCalcScore players
+
+recCalcScore :: [PlayerWrapper] ->[PlayerWrapper]
+recCalcScore [] = []
+recCalcScore (hd:tl) = (calculated:(recCalcScore tl)) where 
+    calculated = (PWS m1 m2 points) where 
+        m1 = m1
+        m2 = m2
+        points = countPoints cards where 
+            (PW m1 m2 cards) = hd
+
+countPoints :: [Card] -> Int
+countPoints (hd:tl) = points + (countPoints tl) where 
+    points = getCardPointValue hd
