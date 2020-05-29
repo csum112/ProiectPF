@@ -64,7 +64,8 @@ tokensToPlayerAction ("discard":tl) hand = if length tl > 1 && length firstToken
         digit = ((tl !! 0) !! 0)
         futureAction = case tokensToDiscardAction tl hand of 
             Nothing -> HelpReq
-            Just action -> action
+            Just (DiscardTop cards) -> if checkCardsSameValue cards then (DiscardTop cards) else HelpReq
+            Just (DiscardBlind cards) -> if checkCardsSameValue cards then (DiscardBlind cards) else HelpReq
 tokensToPlayerAction _ _ = HelpReq
 
 tokensToDiscardAction :: [String] -> [Card] -> Maybe PlayerAction
@@ -80,6 +81,12 @@ tokensToDiscardAction (hd:tl) hand = if length hd == 1 && isDigit (hd!!0) then
                 card = hand!!option
 tokensToDiscardAction _ _ = Nothing
 
+checkCardsSameValue :: [Card] -> Bool
+checkCardsSameValue ((Card _ cv):tl) = checkCardsSameValueAux tl cv
+
+checkCardsSameValueAux :: [Card] -> CardValue -> Bool
+checkCardsSameValueAux [] _ = True
+checkCardsSameValueAux ((Card _ value):tl) vtc = (vtc == value) && (checkCardsSameValueAux tl vtc)
 
 
 

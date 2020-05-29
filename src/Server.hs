@@ -49,8 +49,9 @@ beginGame players = do
     putStrLn "Game has started. Now dealing cards"
     shufDeck <- shuffle deck
     game <- dealCardsGameWrapper players shufDeck numberOfCards
-    round <- gameLoop game 0
-    return ()
+    (Over players) <- gameLoop game 0
+    players <- return (map (\(PWR (PW m1 m2 _ score) _) -> (PW m1 m2 [] score)) players)
+    beginGame players
     where 
         deck = deckBuilder
         numberOfCards = 5
@@ -60,8 +61,6 @@ dealCardsGameWrapper :: [PlayerWrapper] -> [Card] -> Int -> IO(Game)
 dealCardsGameWrapper players deck n = do 
     return (GM newplayers newdeck last_card adv) where
     (newplayers, newdeck, last_card, adv) = dealCards players deck n
-
-
 
 
 dealCards :: [PlayerWrapper] -> [Card] -> Int -> ([PlayerWrapper], [Card], Card, Card)
