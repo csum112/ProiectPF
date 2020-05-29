@@ -26,7 +26,7 @@ gatherPlayers sock numberOfPlayers = do
     conn <- accept sock     -- accept a connection and handle it
     (mOut, mIn) <- runConn conn            -- run our server's logic
     otherPlayers <- gatherPlayers sock (numberOfPlayers - 1)
-    return ((PW mOut mIn []):otherPlayers)
+    return ((PW mOut mIn [] 0):otherPlayers)
 
 runConn :: (Socket, SockAddr) -> IO (MVar PlayerAction, MVar PlayerAction)
 runConn (sock, _) = do
@@ -55,17 +55,18 @@ beginGame players = do
         deck = deckBuilder
         numberOfCards = 5
 
+
 dealCardsGameWrapper :: [PlayerWrapper] -> [Card] -> Int -> IO(Game)
 dealCardsGameWrapper players deck n = do 
-    return (GM newplayers newdeck last_card) where
-    (newplayers, newdeck, last_card) = dealCards players deck n
+    return (GM newplayers newdeck last_card adv) where
+    (newplayers, newdeck, last_card, adv) = dealCards players deck n
 
 
 
 
-dealCards :: [PlayerWrapper] -> [Card] -> Int -> ([PlayerWrapper], [Card], Card)
-dealCards players deck 0 = (players, new_deck, top_card) where
-    (top_card:new_deck) = deck
+dealCards :: [PlayerWrapper] -> [Card] -> Int -> ([PlayerWrapper], [Card], Card, Card)
+dealCards players deck 0 = (players, new_deck, top_card, adv) where
+    (top_card:(adv:new_deck)) = deck
 dealCards players deck n = dealCards newplayers newdeck (n-1) where
     (newplayers, newdeck) = dealCardsRound players deck
 
@@ -76,47 +77,47 @@ dealCardsRound (hd: tl) deck = ((player:newTl), newNewDeck) where
             (newplayer, newdeck) = drawCard hd deck
 
 drawCard :: PlayerWrapper -> [Card] -> (PlayerWrapper, [Card])
-drawCard (PW mOut mIn hand) [] = ((PW mOut mIn hand), [])
-drawCard (PW mOut mIn hand) (hd:tl) = ((PW mOut mIn newhand), tl) where
+drawCard (PW mOut mIn hand score) [] = ((PW mOut mIn hand score), [])
+drawCard (PW mOut mIn hand score) (hd:tl) = ((PW mOut mIn newhand score), tl) where
     newhand = hd:hand
 
 
 gameLoop :: Game -> Int -> IO(Game)
 gameLoop (Over players) _ = return (Over players) 
-gameLoop (GM players deck last_card) turn = do 
+gameLoop (GM players deck last_card adv) turn = do 
     putStrLn "Sending players the new game state"
-    updatePlayers players last_card
-    game <- playerPlayTurn (GM players deck last_card) playerThisTurn turn
+    updatePlayers players last_card adv
+    game <- playerPlayTurn (GM players deck last_card adv) playerThisTurn turn
     gameLoop game nextTurn where
         playerThisTurn = players !! turn
         nextTurn = (turn + 1) `mod` numberOfPlayers where
             numberOfPlayers = length players
 
 
-updatePlayers :: [PlayerWrapper] -> Card -> IO()
-updatePlayers [] _ = return ()
-updatePlayers (hd:tl) last_card = do
-    updatePlayer hd last_card
-    updatePlayers tl last_card
+updatePlayers :: [PlayerWrapper] -> Card -> Card -> IO()
+updatePlayers [] _ _ = return ()
+updatePlayers (hd:tl) last_card adv = do
+    updatePlayer hd last_card adv
+    updatePlayers tl last_card adv
 
-updatePlayer :: PlayerWrapper -> Card -> IO()
-updatePlayer (PW mOut mIn hand) last_card = putMVar mOut (GameState hand last_card)
+updatePlayer :: PlayerWrapper -> Card -> Card-> IO()
+updatePlayer (PW mOut mIn hand score) last_card adv = putMVar mOut (GameState hand last_card adv)
 
 playerPlayTurn :: Game -> PlayerWrapper -> Int -> IO(Game)
 playerPlayTurn (Over players) _ _ = return (Over players)
-playerPlayTurn game (PW mOut mIn hand) turn = do
+playerPlayTurn game (PW mOut mIn hand score) turn = do
     putMVar mOut ItsYourTurn
     action <- takeMVar mIn
-    makeGameChanges game (PW mOut mIn hand) action turn
+    makeGameChanges game (PW mOut mIn hand score) action turn
 
 makeGameChanges :: Game -> PlayerWrapper -> PlayerAction -> Int -> IO(Game)
-makeGameChanges (GM players _ _) player Claim turn = calculateFinalScore players player --IMPLEMENT
+makeGameChanges (GM players _ _ adv) player Claim turn = calculateFinalScore players player adv --IMPLEMENT
 makeGameChanges game player HelpReq  turn = playerPlayTurn game player turn
-makeGameChanges (GM players deck last_card) _ (DiscardTop toDiscard) turn = do
-    return (GM (makePlayerChanges players turn toDiscard last_card) deck new_last_card) where 
+makeGameChanges (GM players deck last_card adv) _ (DiscardTop toDiscard) turn = do
+    return (GM (makePlayerChanges players turn toDiscard last_card) deck new_last_card adv) where 
         (new_last_card:_) = toDiscard
-makeGameChanges (GM players (hd:tl) last_card) _ (DiscardBlind toDiscard) turn = do
-    return (GM (makePlayerChanges players turn toDiscard hd) tl new_last_card) where 
+makeGameChanges (GM players (hd:tl) last_card adv) _ (DiscardBlind toDiscard) turn = do
+    return (GM (makePlayerChanges players turn toDiscard hd) tl new_last_card adv) where 
         (new_last_card:_) = toDiscard
 
 makePlayerChanges :: [PlayerWrapper] -> Int -> [Card] -> Card -> [PlayerWrapper]
@@ -125,24 +126,52 @@ makePlayerChanges (hd:tl) n toDiscard toAdd =  (hd:(makePlayerChanges tl (n-1) t
 
 
 changePlayer :: PlayerWrapper -> [Card] -> Card -> PlayerWrapper
-changePlayer (PW m1 m2 hand) toDiscard toAdd = (PW m1 m2 newHand) where
+changePlayer (PW m1 m2 hand score) toDiscard toAdd = (PW m1 m2 newHand score) where
     newHand = (toAdd:withoutDiscarded) where
         withoutDiscarded = filter (\x -> not (x `elem` toDiscard)) hand
 
 
-calculateFinalScore :: [PlayerWrapper] -> PlayerWrapper -> IO(Game)
-calculateFinalScore players player = return (Over newPlayers) where 
-    newPlayers = recCalcScore players
+calculateFinalScore :: [PlayerWrapper] -> PlayerWrapper -> Card -> IO(Game)
+calculateFinalScore players player adv = do
+    newPlayers <- return (addRoundScore (setScoreWL (recCalcScore players adv) player))
+    annoucePlayerScores newPlayers
+    return (Over newPlayers)
 
-recCalcScore :: [PlayerWrapper] ->[PlayerWrapper]
-recCalcScore [] = []
-recCalcScore (hd:tl) = (calculated:(recCalcScore tl)) where 
-    calculated = (PWS m1 m2 points) where 
-        m1 = m1
-        m2 = m2
-        points = countPoints cards where 
-            (PW m1 m2 cards) = hd
+annoucePlayerScores :: [PlayerWrapper] -> IO()
+annoucePlayerScores [] = return ()
+annoucePlayerScores ((PWR (PW mOut mIn _ score) roundScore):tl) = do
+    putMVar mOut (AnnounceScore score roundScore)
+    annoucePlayerScores tl
 
-countPoints :: [Card] -> Int
-countPoints (hd:tl) = points + (countPoints tl) where 
-    points = getCardPointValue hd
+
+addRoundScore :: [PlayerWrapper] -> [PlayerWrapper]
+addRoundScore [] = []
+addRoundScore (hd:tl) = (newPlayer:rest) where 
+    rest = addRoundScore tl
+    newPlayer = (PWR innerPlayer roundScore) where
+        (innerPlayer, roundScore) = ((PW m1 m2  hand (score + roundScore)), roundScore) where
+            (PWR (PW m1 m2 hand score) roundScore) = hd
+
+setScoreWL :: ([PlayerWrapper], Int) -> PlayerWrapper -> [PlayerWrapper]
+setScoreWL ([], _) _ = []
+setScoreWL ((hd:tl), minScore) theOneWhoCalledClaim = (newhd:rest) where 
+    rest = setScoreWL (tl, minScore) theOneWhoCalledClaim
+    newhd = if (currentPlayer == theOneWhoCalledClaim) && (playerScore /= minScore) then (PWR currentPlayer 50) else 
+        if playerScore == minScore then (PWR currentPlayer 0) else (PWR currentPlayer playerScore) where 
+            (PWR currentPlayer playerScore) = hd
+
+
+recCalcScore :: [PlayerWrapper] -> Card -> ([PlayerWrapper], Int)
+recCalcScore [] _ = ([], maxBound :: Int)
+recCalcScore (hd:tl) adv = ((calculated:rest), currentMin) where
+    (calculated, currentMin, rest) = ((PWR hd points), (min points previousMin), rest) where
+        (rest, previousMin) = recCalcScore tl adv
+        points = countPoints cards adv where 
+            (PW _ _ cards _) = hd
+
+countPoints :: [Card] -> Card -> Int
+countPoints [] _ = 0
+countPoints (hd:tl) adv = points + (countPoints tl adv) where 
+    points = if hdCardValue == advCardValue then 0 else getCardPointValue hd where
+        (Card _ hdCardValue) = hd
+        (Card _ advCardValue) = adv

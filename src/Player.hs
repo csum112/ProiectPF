@@ -4,7 +4,7 @@ import System.IO
 import Cards
 import Data.Char
 
-data PlayerWrapper = PW (MVar PlayerAction) (MVar PlayerAction) [Card] | PWS (MVar PlayerAction) (MVar PlayerAction) Int
+data PlayerWrapper = PW (MVar PlayerAction) (MVar PlayerAction) [Card] Int | PWR PlayerWrapper Int deriving Eq
 
 data PlayerAction = 
     DiscardTop [Card] | 
@@ -12,41 +12,44 @@ data PlayerAction =
     Claim | 
     ItsYourTurn | 
     HelpReq |
-    GameState [Card] Card deriving Show
+    GameState [Card] Card Card | 
+    AnnounceScore Int Int
 
-data Game = GM [PlayerWrapper] [Card] Card | Over [PlayerWrapper]
+data Game = GM [PlayerWrapper] [Card] Card Card | Over [PlayerWrapper]
 
 
 cback :: Handle -> (MVar PlayerAction) -> (MVar PlayerAction)-> IO ()
 cback hdl mOut mIn = do
     hPutStrLn hdl "Welcome! We are waiting for the other players to join"
-    (GameState hand last_card) <- takeMVar mOut
-    startPlaying hdl mOut mIn hand last_card
+    (GameState hand last_card adv) <- takeMVar mOut
+    startPlaying hdl mOut mIn hand last_card adv
     hClose hdl
 
-startPlaying :: Handle -> MVar PlayerAction ->  MVar PlayerAction -> [Card] -> Card ->  IO()
-startPlaying hdl mOut mIn hand last_card = do
+startPlaying :: Handle -> MVar PlayerAction ->  MVar PlayerAction -> [Card] -> Card -> Card ->  IO()
+startPlaying hdl mOut mIn hand last_card adv = do
     hPutStrLn hdl "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
-    hPutStrLn hdl "The last played card is: "
-    hPutStrLn hdl (show last_card)
-    hPutStrLn hdl "and your hand is:"
+    hPutStrLn hdl (renderDownCards last_card adv)
     hPutStrLn hdl (renderCardList hand)
-    (hand, last_card) <- speakToGM hdl mOut mIn hand last_card
-    startPlaying hdl mOut mIn hand last_card
+    (hand, last_card, adv) <- speakToGM hdl mOut mIn hand last_card adv
+    startPlaying hdl mOut mIn hand last_card adv
 
 
-speakToGM :: Handle -> MVar PlayerAction ->  MVar PlayerAction -> [Card] -> Card-> IO ([Card], Card)
-speakToGM hdl mOut mIn hand last_card = do
+speakToGM :: Handle -> MVar PlayerAction ->  MVar PlayerAction -> [Card] -> Card -> Card -> IO ([Card], Card, Card)
+speakToGM hdl mOut mIn hand last_card adv = do
     action <- takeMVar mOut
-    tryToPlay hdl mOut mIn hand last_card action
+    tryToPlay hdl mOut mIn hand last_card adv action
 
-tryToPlay :: Handle -> MVar PlayerAction ->  MVar PlayerAction -> [Card] -> Card -> PlayerAction -> IO ([Card], Card)
-tryToPlay _ _ _ _ _ (GameState hand last_card) = do return (hand, last_card)
-tryToPlay hdl mOut mIn hand last_card ItsYourTurn = do
+tryToPlay :: Handle -> MVar PlayerAction ->  MVar PlayerAction -> [Card] -> Card -> Card-> PlayerAction -> IO ([Card], Card, Card)
+tryToPlay _ _ _ _ _ _ (GameState hand last_card adv) = do return (hand, last_card, adv)
+tryToPlay hdl mOut mIn hand last_card adv ItsYourTurn = do
     hPutStrLn hdl "Yay! Its your turn."
     usrInput <- hGetLine hdl
     putMVar mIn (tokensToPlayerAction (tokenizeString usrInput) hand)
-    return (hand, last_card) 
+    return (hand, last_card, adv) 
+tryToPlay hdl mOut mIn hand last_card adv (AnnounceScore score roundScore) = do
+    hPutStrLn hdl ("You've got " ++ (show roundScore) ++ " points this round.")
+    hPutStrLn hdl ("You now have " ++ (show score) ++ " points.")
+    speakToGM hdl mOut mIn hand last_card adv
 
 tokenizeString :: String -> [String]
 tokenizeString "" = []

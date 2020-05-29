@@ -110,6 +110,9 @@ renderCardList :: [Card] -> String
 renderCardList cards = joinStringRows (reduceStrings cardStrings) where
     cardStrings = cardsToStrings cards 0
 
+renderDownCards :: Card -> Card -> String
+renderDownCards last adv = (join2cards last adv) ++ "  Last " ++ "  " ++ "  Adv\n"
+
 
 getCardPointValue :: Card -> Int
 getCardPointValue (Card _ value) = case value of 
