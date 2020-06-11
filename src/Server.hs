@@ -49,13 +49,40 @@ beginGame players = do
     game <- dealCardsGameWrapper players shufDeck numberOfCards
     (Over players) <- gameLoop game 0
     players <- return (map (\(PWR (PW m1 m2 _ score) _) -> (PW m1 m2 [] score)) players)
-    putStrLn "Starting a new round"
-    promptPlayersToStart players
-    awaitPlayerPrompt players
-    beginGame players
+    players <- dropPlayersWhoLost players
+    verdict <- hasAnyWon players
+    if not verdict then do
+        putStrLn "Starting a new round"
+        promptPlayersToStart players
+        awaitPlayerPrompt players
+        beginGame players
+    else return ()
     where 
         deck = deckBuilder
         numberOfCards = 5
+
+dropPlayersWhoLost :: [PlayerWrapper] -> IO ([PlayerWrapper])
+dropPlayersWhoLost [] = return []
+dropPlayersWhoLost (hd:tl) = do
+    rest <- dropPlayersWhoLost tl
+    let (PW mOut mIn hand score) = hd
+    if score < 300 then return (hd:tl) else do
+        putStrLn (show score)
+        putMVar mOut Quit
+        return rest
+
+hasAnyWon :: [PlayerWrapper] -> IO(Bool)
+hasAnyWon players = if (length players) == 1 then  
+    do
+        let ((PW mOut _ _ _):_) = players
+        putMVar mOut Win
+        putStrLn "I should close the game :)"
+        return True
+    else do
+        putStrLn ("Number of players remaining " ++ (show (length players)))
+        return False
+
+
 
 
 dealCardsGameWrapper :: [PlayerWrapper] -> [Card] -> Int -> IO(Game)

@@ -14,7 +14,9 @@ data PlayerAction =
     HelpReq |
     GameState [Card] Card Card | 
     AnnounceScore Int Int |
-    GameStartPrompt
+    GameStartPrompt |
+    Quit |
+    Win
 
 data Game = GM [PlayerWrapper] [Card] Card Card | Over [PlayerWrapper]
 
@@ -32,7 +34,9 @@ startPlaying hdl mOut mIn hand last_card adv = do
     hPutStrLn hdl (renderDownCards last_card adv)
     hPutStrLn hdl (renderCardList hand)
     (hand, last_card, adv) <- speakToGM hdl mOut mIn hand last_card adv
-    startPlaying hdl mOut mIn hand last_card adv
+    if (length hand) == 0 then return ()
+    else startPlaying hdl mOut mIn hand last_card adv
+    
 
 
 speakToGM :: Handle -> MVar PlayerAction ->  MVar PlayerAction -> [Card] -> Card -> Card -> IO ([Card], Card, Card)
@@ -56,6 +60,13 @@ tryToPlay hdl mOut mIn hand last_card adv GameStartPrompt = do
     ans <- hGetLine hdl
     ready <- return (if ((length ans) == 2) && (ans!!0 == 'Y' || ans!!0 == 'y') then True else False)
     askAgainOrStart hdl mOut mIn hand last_card adv ready
+tryToPlay hdl mOut mIn hand last_card adv Quit = do
+    hPutStrLn hdl ("Sorry, you lost :(")
+    return ([], last_card, adv) 
+tryToPlay hdl mOut mIn hand last_card adv Win = do
+    hPutStrLn hdl ("Yay, you won :)")
+    hClose hdl
+    return ([], last_card, adv) 
 
 askAgainOrStart :: Handle -> MVar PlayerAction ->  MVar PlayerAction -> [Card] -> Card -> Card -> Bool -> IO ([Card], Card, Card)
 askAgainOrStart hdl mOut mIn hand last_card adv False = tryToPlay hdl mOut mIn hand last_card adv (GameStartPrompt)
