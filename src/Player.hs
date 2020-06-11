@@ -13,7 +13,8 @@ data PlayerAction =
     ItsYourTurn | 
     HelpReq |
     GameState [Card] Card Card | 
-    AnnounceScore Int Int
+    AnnounceScore Int Int |
+    GameStartPrompt
 
 data Game = GM [PlayerWrapper] [Card] Card Card | Over [PlayerWrapper]
 
@@ -50,6 +51,18 @@ tryToPlay hdl mOut mIn hand last_card adv (AnnounceScore score roundScore) = do
     hPutStrLn hdl ("You've got " ++ (show roundScore) ++ " points this round.")
     hPutStrLn hdl ("You now have " ++ (show score) ++ " points.")
     speakToGM hdl mOut mIn hand last_card adv
+tryToPlay hdl mOut mIn hand last_card adv GameStartPrompt = do
+    hPutStrLn hdl ("Are you ready to start a new round? [Y/N]")
+    ans <- hGetLine hdl
+    ready <- return (if ((length ans) == 2) && (ans!!0 == 'Y' || ans!!0 == 'y') then True else False)
+    askAgainOrStart hdl mOut mIn hand last_card adv ready
+
+askAgainOrStart :: Handle -> MVar PlayerAction ->  MVar PlayerAction -> [Card] -> Card -> Card -> Bool -> IO ([Card], Card, Card)
+askAgainOrStart hdl mOut mIn hand last_card adv False = tryToPlay hdl mOut mIn hand last_card adv (GameStartPrompt)
+askAgainOrStart hdl mOut mIn hand last_card adv True = do
+    putMVar mIn GameStartPrompt
+    speakToGM hdl mOut mIn hand last_card adv
+
 
 tokenizeString :: String -> [String]
 tokenizeString "" = []

@@ -10,10 +10,10 @@ import Data.Tuple
 serverLoop :: String -> String -> Int -> IO ()
 serverLoop hostname port numberOfPlayers = do
     (addr:_) <- getAnyAddr hostname port
-    sock <- socket AF_INET Stream 0    -- create socket
-    setSocketOption sock ReuseAddr 1   -- make socket immediately reusable - eases debugging.
-    bind sock (addrAddress addr)  -- listen on TCP port 4242.
-    listen sock 2                              -- set a max of 2 queued connections
+    sock <- socket AF_INET Stream 0
+    setSocketOption sock ReuseAddr 1
+    bind sock (addrAddress addr)
+    listen sock 2
     players <- gatherPlayers sock numberOfPlayers
     beginGame players
 
@@ -42,8 +42,6 @@ getAnyAddr :: String -> String -> IO[AddrInfo]
 getAnyAddr hostname port = getAddrInfo (Just defaultHints) (Just hostname) (Just port)
 
 
--- =========TODO: Finish implementing
-
 beginGame :: [PlayerWrapper] -> IO ()
 beginGame players = do
     putStrLn "Game has started. Now dealing cards"
@@ -51,6 +49,9 @@ beginGame players = do
     game <- dealCardsGameWrapper players shufDeck numberOfCards
     (Over players) <- gameLoop game 0
     players <- return (map (\(PWR (PW m1 m2 _ score) _) -> (PW m1 m2 [] score)) players)
+    putStrLn "Starting a new round"
+    promptPlayersToStart players
+    awaitPlayerPrompt players
     beginGame players
     where 
         deck = deckBuilder
@@ -110,7 +111,7 @@ playerPlayTurn game (PW mOut mIn hand score) turn = do
     makeGameChanges game (PW mOut mIn hand score) action turn
 
 makeGameChanges :: Game -> PlayerWrapper -> PlayerAction -> Int -> IO(Game)
-makeGameChanges (GM players _ _ adv) player Claim turn = calculateFinalScore players player adv --IMPLEMENT
+makeGameChanges (GM players _ _ adv) player Claim turn = calculateFinalScore players player adv
 makeGameChanges game player HelpReq  turn = playerPlayTurn game player turn
 makeGameChanges (GM players deck last_card adv) _ (DiscardTop toDiscard) turn = do
     return (GM (makePlayerChanges players turn toDiscard last_card) deck new_last_card adv) where 
@@ -174,3 +175,30 @@ countPoints (hd:tl) adv = points + (countPoints tl adv) where
     points = if hdCardValue == advCardValue then 0 else getCardPointValue hd where
         (Card _ hdCardValue) = hd
         (Card _ advCardValue) = adv
+
+
+promptPlayersToStart :: [PlayerWrapper] -> IO ()
+promptPlayersToStart [] = return ()
+promptPlayersToStart ((PW mOut mIn _ _):tl) = do
+    putMVar mOut GameStartPrompt
+    promptPlayersToStart tl
+
+awaitPlayerPrompt :: [PlayerWrapper] -> IO ()
+awaitPlayerPrompt [] = return ()
+awaitPlayerPrompt ((PW mOut mIn _ _):tl) = do
+    action <- takeMVar mIn
+    awaitPlayerPrompt tl
+
+
+
+
+
+
+
+
+
+
+
+
+
+
